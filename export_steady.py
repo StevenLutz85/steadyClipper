@@ -4,9 +4,6 @@ import cv2
 import os
 import argparse
 
-#!/usr/bin/python3
-import cv2
-
 def calculate_steady_threshold(frame_diffs):
     # Calculate the average frame difference
     average_diff = sum(frame_diffs) / len(frame_diffs)
@@ -46,12 +43,16 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1):
 
     # Second Pass: Extract steady sections using the calculated threshold
     cap = cv2.VideoCapture(input_file)
-    steady_frames = []
     prev_frame = None
     frame_index = 0
 
-    output_folder = os.path.splitext(input_file)[0] + "_output"
     os.makedirs(output_folder, exist_ok=True)
+
+    # Create VideoWriter with the correct frame rate
+    output_fps = fps
+
+    out = None
+    steady_frames_count = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -61,26 +62,30 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1):
         if prev_frame is not None:
             frame_diff = cv2.absdiff(prev_frame, frame).mean()
             if frame_diff < steady_threshold:
-                steady_frames.append(frame)
+                if out is None:
+                    output_file = f"{output_folder}/steady_section_{frame_index}.mp4"
+                    out = cv2.VideoWriter(output_file,
+                                          cv2.VideoWriter_fourcc(*'mp4v'),
+                                          output_fps, (frame_width, frame_height))
+                out.write(frame)
+                steady_frames_count += 1
             else:
-                if steady_frames:
-                    # Calculate the duration of the steady section in seconds
-                    duration_seconds = len(steady_frames) / fps
-                    # Export steady section as separate video file if duration is >= min_duration_seconds
+                if out is not None:
+                    duration_seconds = steady_frames_count / fps
                     if duration_seconds >= min_duration_seconds:
-                        output_file = f"{output_folder}/steady_section_{frame_index}.mp4"
-                        out = cv2.VideoWriter(output_file,
-                                              cv2.VideoWriter_fourcc(*'mp4v'),
-                                              fps, (frame_width, frame_height))
-                        for steady_frame in steady_frames:
-                            out.write(steady_frame)
                         out.release()
 
-                steady_frames.clear()
+                out = None
+                steady_frames_count = 0
 
         prev_frame = frame
 
         frame_index += 1
+
+    if out is not None:
+        duration_seconds = steady_frames_count / fps
+        if duration_seconds >= min_duration_seconds:
+            out.release()
 
     cap.release()
 
@@ -90,4 +95,5 @@ if __name__ == "__main__":
     parser.add_argument("--min_duration_seconds", type=float, default=1, help="Minimum duration for exported sections")
     args = parser.parse_args()
 
-    extract_steady_sections(args.video_file, args.min_duration_seconds)
+    output_folder = os.path.splitext(args.video_file)[0] + "_output"
+    extract_steady_sections(args.video_file, output_folder, args.min_duration_seconds)
