@@ -97,7 +97,7 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, b
                     if goodClip == 0:
                         output_file = f"{output_folder}/steady_section_{frame_index}.mp4"
                         out = cv2.VideoWriter(output_file,
-                                              cv2.VideoWriter_fourcc(*'hevl'),
+                                              cv2.VideoWriter_fourcc(*'hvcl'),
                                               output_fps, (frame_width, frame_height))
 
                         for steady_frame in steady_frames:
