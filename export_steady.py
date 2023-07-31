@@ -17,7 +17,7 @@ def calculate_steady_threshold(frame_diffs, std_multiplier=1):
 
     return threshold
 
-def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, buffer_size=100):
+def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, deviation_mult=1):
     # First Pass: Calculate the steady threshold
     cap = cv2.VideoCapture(input_file)
     frame_diffs = []  # Store frame differences for threshold calculation
@@ -40,7 +40,7 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, b
     cap.release()
 
     # Calculate the steady threshold based on the first pass
-    steady_threshold = calculate_steady_threshold(frame_diffs)
+    steady_threshold = calculate_steady_threshold(frame_diffs, deviation_mult)
     print(f"Steady Threshold: {steady_threshold}")
 
     #Find max frame diffs
@@ -65,6 +65,7 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, b
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
+    srcBitRate = cap.get(cv2.CAP_PROP_BITRATE)
     output_fps = fps
 
     # Initialize variables for steady section detection
@@ -97,7 +98,7 @@ def extract_steady_sections(input_file, output_folder, min_duration_seconds=1, b
                     if goodClip == 0:
                         output_file = f"{output_folder}/steady_section_{frame_index}.mp4"
                         out = cv2.VideoWriter(output_file,
-                                              cv2.VideoWriter_fourcc(*'hvcl'),
+                                              cv2.VideoWriter_fourcc(*'hvc1'),
                                               output_fps, (frame_width, frame_height))
 
                         for steady_frame in steady_frames:
@@ -123,8 +124,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract steady sections from a video file.")
     parser.add_argument("video_file", type=str, help="Input video file (MP4 format)")
     parser.add_argument("--min_duration_seconds", type=float, default=1, help="Minimum duration in seconds for exported sections, Default 1")
-    parser.add_argument("--deviation-mult", type=float, default=1, help="Multiplier of Standard Deviation which is added to the frames average difference value for Clipping Threshold, Default 2")
+    parser.add_argument("--deviation_mult", type=float, default=1, help="Multiplier of Standard Deviation which is added to the frames average difference value for Clipping Threshold, Default 1")
     args = parser.parse_args()
 
     output_folder = os.path.splitext(args.video_file)[0] + "_output"
-    extract_steady_sections(args.video_file, output_folder, args.min_duration_seconds)
+#    output_filename_prefix = os.path.splitext(args.video_file)[0]
+    extract_steady_sections(args.video_file, output_folder, args.min_duration_seconds, args.deviation_mult)
